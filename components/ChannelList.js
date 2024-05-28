@@ -11,7 +11,7 @@ const ChannelList = () => {
     const fetchChannels = async () => {
       const userId = user ? user.id : null;
       const response = await fetch(
-        `/api/channels${userId ? `?user_id=${userId}` : ''}`
+        `/api/channels/get-channel${userId ? `?user_id=${userId}` : ''}`
       );
       const data = await response.json();
 
@@ -33,7 +33,7 @@ const ChannelList = () => {
     }
 
     const method = isFollowed ? 'DELETE' : 'POST';
-    const response = await fetch('/api/follow', {
+    const response = await fetch('/api/profiles/follow', {
       method,
       headers: {
         'Content-Type': 'application/json',

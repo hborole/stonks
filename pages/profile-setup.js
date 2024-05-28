@@ -21,7 +21,7 @@ const ProfileSetup = () => {
 
   const checkUsernameAvailability = async (username) => {
     setLoading(true);
-    const response = await fetch(`/api/profile?username=${username}`);
+    const response = await fetch(`/api/profiles/profile?username=${username}`);
     const data = await response.json();
 
     if (data.error) {
@@ -55,16 +55,19 @@ const ProfileSetup = () => {
 
     if (usernameAvailable) {
       try {
-        // Upsert the profile
-        const profileResponse = await fetch('/api/profile', {
+        const profileResponse = await fetch('/api/profiles/profile', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             user,
+            firstName,
+            lastName,
             username,
             email: user.email,
+            channelName,
+            description,
             notificationPreferences,
           }),
         });
@@ -73,26 +76,6 @@ const ProfileSetup = () => {
 
         if (!profileResponse.ok) {
           console.error('Error updating profile:', profileData.error);
-          return;
-        }
-
-        // Insert the channel linked to the profile
-        const channelResponse = await fetch('/api/channel', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            channelName,
-            description,
-          }),
-        });
-
-        const channelData = await channelResponse.json();
-
-        if (!channelResponse.ok) {
-          console.error('Error inserting channel:', channelData.error);
           return;
         }
 

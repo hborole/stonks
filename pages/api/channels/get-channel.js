@@ -1,9 +1,8 @@
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 
 export default async function handler(req, res) {
   const { user_id } = req.query;
 
-  // Fetch channels, filtering out channels created by the user if user_id is provided
   let query = supabase.from('channels').select('*');
 
   if (user_id) {
