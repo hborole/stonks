@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
 const ChannelList = () => {
@@ -10,46 +9,17 @@ const ChannelList = () => {
 
   useEffect(() => {
     const fetchChannels = async () => {
-      let fetchedChannels = [];
-      if (!user) {
-        const { data, error } = await supabase.from('channels').select('*');
-        if (error) {
-          console.error('Error fetching channels:', error);
-        } else {
-          fetchedChannels = data;
-        }
+      const userId = user ? user.id : null;
+      const response = await fetch(
+        `/api/channels${userId ? `?user_id=${userId}` : ''}`
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setChannels(data);
       } else {
-        const { data, error } = await supabase
-          .from('channels')
-          .select('*')
-          .neq('user_id', user.id);
-        if (error) {
-          console.error('Error fetching channels:', error);
-        } else {
-          fetchedChannels = data;
-        }
+        console.error('Error fetching channels:', data.error);
       }
-
-      if (user) {
-        const { data: followersData, error: followersError } = await supabase
-          .from('followers')
-          .select('channel_id')
-          .eq('user_id', user.id);
-
-        if (followersError) {
-          console.error('Error fetching followers:', followersError);
-        } else {
-          const followedChannelIds = followersData.map(
-            (follower) => follower.channel_id
-          );
-          fetchedChannels = fetchedChannels.map((channel) => ({
-            ...channel,
-            is_followed: followedChannelIds.includes(channel.id),
-          }));
-        }
-      }
-
-      setChannels(fetchedChannels);
       setLoading(false);
     };
 
@@ -62,43 +32,28 @@ const ChannelList = () => {
       return;
     }
 
-    if (isFollowed) {
-      const { error } = await supabase
-        .from('followers')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('channel_id', channelId);
+    const method = isFollowed ? 'DELETE' : 'POST';
+    const response = await fetch('/api/follow', {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: user.id, channel_id: channelId }),
+    });
 
-      if (error) {
-        console.error('Error unfollowing channel:', error.message);
-      } else {
-        setChannels((prevChannels) =>
-          prevChannels.map((channel) =>
-            channel.id === channelId
-              ? { ...channel, is_followed: false }
-              : channel
-          )
-        );
-        console.log('Successfully unfollowed channel:', channelId);
-      }
+    const data = await response.json();
+
+    if (response.ok) {
+      setChannels((prevChannels) =>
+        prevChannels.map((channel) =>
+          channel.id === channelId
+            ? { ...channel, is_followed: !isFollowed }
+            : channel
+        )
+      );
+      console.log(data.message);
     } else {
-      const { error } = await supabase.from('followers').insert({
-        user_id: user.id,
-        channel_id: channelId,
-      });
-
-      if (error) {
-        console.error('Error following channel:', error.message);
-      } else {
-        setChannels((prevChannels) =>
-          prevChannels.map((channel) =>
-            channel.id === channelId
-              ? { ...channel, is_followed: true }
-              : channel
-          )
-        );
-        console.log('Successfully followed channel:', channelId);
-      }
+      console.error('Error following/unfollowing channel:', data.error);
     }
   };
 
@@ -132,20 +87,21 @@ const ChannelList = () => {
               </div>
             </Link>
             {user && (
-              <div className="flex items-center flex-col">
+              <div className="flex flex-col items-center">
                 <button
                   onClick={() =>
                     handleFollowToggle(channel.id, channel.is_followed)
                   }
-                  className={`mb-2 px-2 py-1 border text-md rounded ${
+                  className={`mb-2 px-2 py-1 border rounded ${
                     channel.is_followed
                       ? 'border-gray-300 text-gray-500 hover:bg-gray-100'
-                      : 'border-blue-500 text-blue-500 hover:bg-blue-100'
+                      : 'border-blue-300 text-blue-500 hover:bg-blue-100'
                   }`}
                 >
                   {channel.is_followed ? 'Following' : 'Follow'}
                 </button>
-                <div className="text-md flex items-center text-sm text-gray-500 sm:mt-0">
+
+                <div className="mt-2 flex items-center text-md text-gray-500 sm:mt-0">
                   <p>Live: {channel.is_live ? 'Yes' : 'No'}</p>
                 </div>
               </div>
