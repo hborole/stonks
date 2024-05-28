@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase';
 
 const ProfileSetup = () => {
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [channelName, setChannelName] = useState('');
+  const [description, setDescription] = useState('');
   const [notificationPreferences, setNotificationPreferences] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,6 +40,7 @@ const ProfileSetup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Retrieve user from Supabase auth
     const {
       data: { user },
       error: userError,
@@ -47,48 +52,32 @@ const ProfileSetup = () => {
     }
 
     if (user && usernameAvailable) {
-      // Check if the profile already exists
-      const { data: existingProfile, error: profileError } = await supabase
+      // Upsert the profile
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+        .upsert({
+          id: user.id, // Use auth user ID as profile ID
+          email: user.email,
+          username,
+          notification_preferences: notificationPreferences,
+        });
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Error checking existing profile:', profileError.message);
+      if (profileError) {
+        console.error('Error updating profile:', profileError.message);
         return;
       }
 
-      if (existingProfile) {
-        // Update the existing profile
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            username,
-            notification_preferences: notificationPreferences,
-            email: user.email, // Ensure email is included
-          })
-          .eq('id', user.id);
+      // Insert the channel linked to the profile
+      const { error: channelError } = await supabase.from('channels').insert({
+        user_id: user.id,
+        name: channelName,
+        description: description || '', // Optional description
+      });
 
-        if (updateError) {
-          console.error('Error updating profile:', updateError.message);
-        } else {
-          router.push('/');
-        }
+      if (channelError) {
+        console.error('Error inserting channel:', channelError.message);
       } else {
-        // Insert a new profile
-        const { error: insertError } = await supabase.from('profiles').insert({
-          id: user.id,
-          username,
-          notification_preferences: notificationPreferences,
-          email: user.email, // Ensure email is included
-        });
-
-        if (insertError) {
-          console.error('Error inserting profile:', insertError.message);
-        } else {
-          router.push('/');
-        }
+        router.push('/'); // Redirect to home or dashboard after successful setup
       }
     }
   };
@@ -100,6 +89,38 @@ const ProfileSetup = () => {
           Complete Your Profile
         </h2>
         <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="firstName"
+            >
+              First Name
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="lastName"
+            >
+              Last Name
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
           <div className="mb-4">
             <label
               className="block text-gray-700 text-sm font-bold mb-2"
@@ -126,6 +147,36 @@ const ProfileSetup = () => {
             ) : (
               <p className="text-red-500 text-sm mt-2">Username is taken!</p>
             )}
+          </div>
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="channelName"
+            >
+              Channel Name
+            </label>
+            <input
+              id="channelName"
+              type="text"
+              value={channelName}
+              onChange={(e) => setChannelName(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="description"
+            >
+              Description (Optional)
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            />
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2">

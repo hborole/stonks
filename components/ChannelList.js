@@ -1,14 +1,36 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 const ChannelList = () => {
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchChannels = async () => {
-      const { data, error } = await supabase.from('channels').select('*');
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.log('User not signed in', userError.message);
+        const { data, error } = await supabase.from('channels').select('*');
+        if (error) {
+          console.error('Error fetching channels:', error);
+        } else {
+          setChannels(data);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('channels')
+        .select('*')
+        .neq('user_id', user.id);
       if (error) {
         console.error('Error fetching channels:', error);
       } else {
@@ -18,7 +40,7 @@ const ChannelList = () => {
     };
 
     fetchChannels();
-  }, []);
+  }, [user]);
 
   if (loading) {
     return <div>Loading channels...</div>;
@@ -29,24 +51,25 @@ const ChannelList = () => {
       <ul className="divide-y divide-gray-200">
         {channels.map((channel) => (
           <li key={channel.id} className="px-4 py-4 sm:px-6">
-            <Link href={`/channel/${channel.id}`}>
-              <a className="block hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <p className="text-lg leading-6 font-medium text-indigo-600">
-                    {channel.name}
+            <Link
+              href={`/channel/${channel.id}`}
+              className="block hover:bg-gray-50"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-lg leading-6 font-medium text-indigo-600">
+                  {channel.name}
+                </p>
+              </div>
+              <div className="mt-2 sm:flex sm:justify-between">
+                <div className="sm:flex">
+                  <p className="flex items-center text-sm text-gray-500">
+                    {channel.description}
                   </p>
                 </div>
-                <div className="mt-2 sm:flex sm:justify-between">
-                  <div className="sm:flex">
-                    <p className="flex items-center text-sm text-gray-500">
-                      {channel.description}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                    <p>Live: {channel.is_live ? 'Yes' : 'No'}</p>
-                  </div>
+                <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                  <p>Live: {channel.is_live ? 'Yes' : 'No'}</p>
                 </div>
-              </a>
+              </div>
             </Link>
           </li>
         ))}
