@@ -21,18 +21,14 @@ const ProfileSetup = () => {
 
   const checkUsernameAvailability = async (username) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username);
+    const response = await fetch(`/api/profile?username=${username}`);
+    const data = await response.json();
 
-    if (error) {
-      console.error('Error checking username:', error.message);
-      setUsernameAvailable(false);
-    } else if (data.length > 0) {
+    if (data.error) {
+      console.error('Error checking username:', data.error);
       setUsernameAvailable(false);
     } else {
-      setUsernameAvailable(true);
+      setUsernameAvailable(data.isAvailable);
     }
     setLoading(false);
   };
@@ -51,33 +47,59 @@ const ProfileSetup = () => {
       return;
     }
 
-    if (user && usernameAvailable) {
-      // Upsert the profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id, // Use auth user ID as profile ID
-          email: user.email,
-          username,
-          notification_preferences: notificationPreferences,
+    if (!user) {
+      console.error('User is not authenticated');
+      router.push('/login'); // Redirect to login if the user is not authenticated
+      return;
+    }
+
+    if (usernameAvailable) {
+      try {
+        // Upsert the profile
+        const profileResponse = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user,
+            username,
+            email: user.email,
+            notificationPreferences,
+          }),
         });
 
-      if (profileError) {
-        console.error('Error updating profile:', profileError.message);
-        return;
-      }
+        const profileData = await profileResponse.json();
 
-      // Insert the channel linked to the profile
-      const { error: channelError } = await supabase.from('channels').insert({
-        user_id: user.id,
-        name: channelName,
-        description: description || '', // Optional description
-      });
+        if (!profileResponse.ok) {
+          console.error('Error updating profile:', profileData.error);
+          return;
+        }
 
-      if (channelError) {
-        console.error('Error inserting channel:', channelError.message);
-      } else {
-        router.push('/'); // Redirect to home or dashboard after successful setup
+        // Insert the channel linked to the profile
+        const channelResponse = await fetch('/api/channel', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            channelName,
+            description,
+          }),
+        });
+
+        const channelData = await channelResponse.json();
+
+        if (!channelResponse.ok) {
+          console.error('Error inserting channel:', channelData.error);
+          return;
+        }
+
+        // Redirect to home or dashboard after successful setup
+        router.push('/');
+      } catch (error) {
+        console.error('Error:', error);
       }
     }
   };
