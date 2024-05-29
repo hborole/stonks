@@ -11,7 +11,7 @@ const ChannelList = () => {
     const fetchChannels = async () => {
       const userId = user ? user.id : null;
       const response = await fetch(
-        `/api/channels/get-channel${userId ? `?user_id=${userId}` : ''}`
+        `/api/channels/get-channels${userId ? `?user_id=${userId}` : ''}`
       );
       const data = await response.json();
 

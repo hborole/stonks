@@ -1,38 +1,33 @@
 import { supabase } from '../../../lib/supabase';
 
 export default async function handler(req, res) {
-  const { user_id } = req.query;
-
-  let query = supabase.from('channels').select('*');
-
-  if (user_id) {
-    query = query.neq('user_id', user_id);
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let { data: channels, error } = await query;
+  const { id } = req.query; // Get the channel ID from the query parameters
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
+  try {
+    // Fetch the channel information
+    const { data: channelData, error: channelError } = await supabase
+      .from('channels')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-  if (user_id) {
-    const { data: followersData, error: followersError } = await supabase
-      .from('followers')
-      .select('channel_id')
-      .eq('user_id', user_id);
-
-    if (followersError) {
-      return res.status(500).json({ error: followersError.message });
+    if (channelError) {
+      throw channelError;
     }
 
-    const followedChannelIds = followersData.map(
-      (follower) => follower.channel_id
-    );
-    channels = channels.map((channel) => ({
-      ...channel,
-      is_followed: followedChannelIds.includes(channel.id),
-    }));
-  }
+    if (!channelData) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
 
-  res.status(200).json(channels);
+    return res.status(200).json({
+      channel: channelData,
+    });
+  } catch (error) {
+    console.error('Fetch channel error:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
 }

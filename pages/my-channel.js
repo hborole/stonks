@@ -13,9 +13,10 @@ const MyChannel = () => {
   useEffect(() => {
     if (user) {
       fetchUserProfile();
-      subscribeToMessages();
     }
-  }, [user]);
+
+    const messageSubscription = isStreaming ? subscribeToMessages() : null;
+  }, [user, isStreaming]);
 
   const fetchUserProfile = async () => {
     const response = await fetch(`/api/profiles/profile?user_id=${user.id}`);
@@ -26,18 +27,17 @@ const MyChannel = () => {
   };
 
   const subscribeToMessages = () => {
-    const subscription = supabase
+    supabase
       .channel('messages')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          setMessages((prevMessages) => [...prevMessages, payload.new]);
+          console.log('Change received!', payload.new);
+          setMessages((messages) => [...messages, payload.new]);
         }
       )
       .subscribe();
-
-    return () => subscription.unsubscribe();
   };
 
   const handleSendMessage = async () => {
@@ -108,7 +108,8 @@ const MyChannel = () => {
                 {messages.length > 0 &&
                   messages.map((msg, index) => (
                     <div key={index} className="mt-2 text-sm">
-                      <strong>{msg?.username}:</strong> {msg?.content}
+                      <strong>{msg?.username || 'Anonymous'}:</strong>{' '}
+                      {msg?.content}
                     </div>
                   ))}
               </div>
